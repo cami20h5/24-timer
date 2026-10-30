@@ -1,0 +1,1089 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="24 timer">
+<meta name="theme-color" content="#2E7655">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>24 timer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one narrow column, phone-first. The day is a 24-hour strip at the top; everything below is today only. */
+:root{
+  --bg:#F2F5F1; --surface:#FFFFFF; --sunk:#E6ECE6; --line:#D3DCD4;
+  --ink:#1D2A23; --muted:#5D6D63;
+  --accent:#2E7655; --accent-ink:#FFFFFF; --accent-soft:#D8EBDF;
+  --carb:#C98A1E; --prot:#3A67AD; --fat:#7A5CA8; --fib:#6E8B2F; --water:#2F8FA8;
+  --warn:#C2512F; --warn-soft:#F7E0D7;
+  --display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body:"Figtree", "Segoe UI", system-ui, sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#131A16; --surface:#1B241F; --sunk:#243029; --line:#2F3D35;
+  --ink:#E7EFE9; --muted:#9BAEA2;
+  --accent:#5DBB8C; --accent-ink:#0E1A13; --accent-soft:#1F3A2C;
+  --carb:#E3A945; --prot:#7DA2E0; --fat:#B39BE0; --fib:#A3C25E; --water:#5EC0D8;
+  --warn:#EE8460; --warn-soft:#3A2219; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#131A16; --surface:#1B241F; --sunk:#243029; --line:#2F3D35;
+  --ink:#E7EFE9; --muted:#9BAEA2;
+  --accent:#5DBB8C; --accent-ink:#0E1A13; --accent-soft:#1F3A2C;
+  --carb:#E3A945; --prot:#7DA2E0; --fat:#B39BE0; --fib:#A3C25E; --water:#5EC0D8;
+  --warn:#EE8460; --warn-soft:#3A2219; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:1.15rem;font-weight:700}
+.num{font-variant-numeric:tabular-nums}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{border:0;border-radius:999px;padding:.7em 1.2em;font-weight:600;background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
+.btn.sos{background:var(--warn);color:#fff}
+.card{background:var(--surface);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:14px}
+.notice{font-size:.85rem;color:var(--muted);background:var(--sunk);border-radius:10px;padding:10px 12px}
+
+/* header */
+header{display:flex;flex-direction:column;gap:12px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand h1{font-size:2.4rem;font-weight:800;line-height:1}
+.brand h1 span{color:var(--accent)}
+.brand .date{color:var(--muted);font-weight:500}
+.tagline{margin:0;font-family:var(--display);font-size:1.15rem;font-weight:500;line-height:1.3;max-width:34ch;text-wrap:balance}
+.tagline b{color:var(--accent);font-weight:800}
+.strip{position:relative;height:38px;border-radius:10px;background:var(--sunk);overflow:hidden}
+.strip .past{position:absolute;inset:0 auto 0 0;background:var(--accent-soft)}
+.strip .now{position:absolute;top:0;bottom:0;width:2px;background:var(--accent)}
+.strip .dot{position:absolute;top:50%;width:10px;height:10px;border-radius:50%;transform:translate(-50%,-50%);background:var(--ink);border:2px solid var(--surface)}
+.strip .dot.snack{background:var(--warn)}
+.strip .dot.win{background:var(--accent)}
+.hours{display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted)}
+.left{font-size:.9rem;color:var(--muted)}
+.left b{color:var(--ink)}
+
+/* kcal */
+.kcal{display:grid;grid-template-columns:150px 1fr;gap:18px;align-items:center}
+.ring{position:relative;width:150px;height:150px}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.ring .big{font-family:var(--display);font-size:2rem;font-weight:800;line-height:1}
+.ring .sub{font-size:.75rem;color:var(--muted)}
+.macros{display:flex;flex-direction:column;gap:12px;min-width:0}
+.macro .row{display:flex;justify-content:space-between;gap:8px;font-size:.85rem}
+.macro .row b{font-weight:600}
+.bar{position:relative;height:10px;border-radius:5px;background:var(--sunk);overflow:hidden;margin-top:4px}
+.bar .zone{position:absolute;top:0;bottom:0;opacity:.28}
+.bar .fill{position:absolute;inset:0 auto 0 0;border-radius:5px;transition:width .4s ease}
+@media (max-width:460px){.kcal{grid-template-columns:1fr;justify-items:center}.macros{width:100%}}
+
+/* synderne: advarselsboks med blinklys */
+.sin-card{border:5px solid var(--warn);position:relative;overflow:hidden;padding-top:0}
+.hazard{height:12px;margin:0 -18px;background:repeating-linear-gradient(-45deg,var(--warn) 0 12px,var(--ink) 12px 24px)}
+.sin-head{display:flex;align-items:center;gap:12px}
+.sin-head h2{font-size:1.5rem;font-weight:800;color:var(--warn);text-transform:uppercase;letter-spacing:.06em}
+.sick{font-size:2rem;line-height:1;margin-left:auto}
+.beacon{--bc:var(--warn);--hi:#FFD3C4;width:22px;height:22px;flex:none;border-radius:50%;background:radial-gradient(circle at 35% 35%,var(--hi),var(--bc) 55%);
+  box-shadow:0 0 0 0 var(--bc);animation:beacon 1s steps(1,end) infinite, glow 1s ease-out infinite}
+.beacon.go{--bc:var(--accent);--hi:#D6F5E4;animation-duration:1.6s,1.6s}
+@keyframes beacon{50%{opacity:.25}}
+@keyframes glow{0%{box-shadow:0 0 0 0 var(--bc)}100%{box-shadow:0 0 0 14px transparent}}
+/* i dag: grøn modpol til synderne */
+.today-card{border:5px solid var(--accent)}
+.sin-head .today-h{font-size:1.5rem;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.06em}
+.stop.go-box{background:var(--accent-soft);border-color:var(--accent)}
+.ai-box{background:var(--accent-soft);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.ai-box .field{color:var(--ink);font-weight:600;font-size:.9rem}
+.ai-box textarea{background:var(--surface)}
+.ai-item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:.9rem}
+.ai-item .m{font-size:.75rem;color:var(--muted)}
+.ai-item .x{border:0;background:var(--surface);border-radius:50%;width:28px;height:28px;color:var(--muted)}
+.ai-total{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;padding-top:8px;border-top:1.5px solid var(--ink);font-size:.85rem}
+.baby-list{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:3px}
+.baby-list li::marker{color:var(--accent)}
+.baby-list b{color:var(--accent)}
+.go-shout{font-family:var(--display);font-weight:800;font-size:1.15rem;color:var(--accent);text-transform:uppercase;letter-spacing:.03em}
+@media (prefers-reduced-motion:reduce){.beacon{animation:none}}
+.sin-examples{margin:0;font-weight:600;color:var(--warn)}
+.stop{display:flex;gap:14px;align-items:flex-start;background:var(--warn-soft);border:2px dashed var(--warn);border-radius:12px;padding:14px}
+.stop-hand{font-size:2.6rem;line-height:1;flex:none}
+.stop-text{display:flex;flex-direction:column;gap:6px;min-width:0;font-size:.95rem}
+.stop-text p{margin:0}
+.stop-shout{font-family:var(--display);font-weight:800;font-size:1.15rem;color:var(--warn);text-transform:uppercase;letter-spacing:.03em}
+.sin-snack{font-size:.9rem;color:var(--muted)}
+.sin-snack .big{font-family:var(--display);font-size:1.5rem;font-weight:800;color:var(--warn);margin-right:4px}
+.sin-list{display:flex;flex-direction:column;gap:2px}
+.sin{display:flex;flex-direction:column;padding:8px 0;border-top:1px solid var(--line);font-size:.9rem}
+.sin .m{font-size:.75rem;color:var(--muted)}
+
+/* actions */
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions .btn{padding:1em;font-size:1rem}
+.wins{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:.9rem}
+.water{display:flex;gap:6px;flex-wrap:wrap}
+.water button{width:30px;height:36px;border-radius:6px 6px 10px 10px;border:1.5px solid var(--water);background:transparent;padding:0}
+.water button.on{background:var(--water)}
+.water button{width:24px;height:44px;border-radius:9px 9px 6px 6px;position:relative}
+.water button::before{content:"";position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:10px;height:6px;border-radius:2px 2px 0 0;background:var(--water)}
+.water button.extra{opacity:.55}
+.water button.extra.on{opacity:1}
+.water-note{font-size:.85rem;color:var(--muted)}
+.water-note b{color:var(--water)}
+.water-info{margin:0;font-size:.85rem;color:var(--muted);max-width:65ch}
+.water-info b{color:var(--ink)}
+/* spejlet: rød (slidt) til venstre, grøn (strålende) til højre */
+.mirror{display:flex;justify-content:space-between;gap:12px}
+.who{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
+.who .face{font-size:3rem;line-height:1}
+.who small{font-size:.75rem;color:var(--muted);font-weight:600}
+.who:first-child .face{filter:grayscale(.4)}
+.track{position:relative;height:40px;margin:0 8px}
+.track-line{position:absolute;left:0;right:0;top:8px;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--warn),var(--carb) 50%,var(--accent))}
+.you{position:absolute;top:0;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;transition:left .6s ease}
+.you::before{content:"";width:26px;height:26px;border-radius:50%;background:var(--surface);border:4px solid var(--ink);box-sizing:border-box}
+.you span{font-size:.7rem;font-weight:800;margin-top:-1px}
+.mirror-status{margin:0;font-family:var(--display);font-weight:700;font-size:1.05rem}
+
+/* meals */
+.meal{display:flex;flex-direction:column;gap:6px}
+.meal h3{font-size:.95rem;display:flex;justify-content:space-between;font-weight:700}
+.meal h3 span{font-family:var(--body);font-weight:500;color:var(--muted);font-size:.85rem}
+.entry{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:.9rem}
+.entry .m{font-size:.75rem;color:var(--muted)}
+.entry .x{border:0;background:var(--sunk);border-radius:50%;width:28px;height:28px;color:var(--muted)}
+.entry.snack .n::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warn);margin-right:6px;vertical-align:1px}
+.empty{color:var(--muted);font-size:.9rem}
+
+/* grøn dag */
+.green-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.gh-l{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.badge{display:inline-block;border-radius:999px;padding:.3em .8em;font-size:.8rem;font-weight:700;background:var(--sunk);color:var(--muted)}
+.badge.ok{background:var(--accent);color:var(--accent-ink)}
+.badge.bad{background:var(--warn-soft);color:var(--warn)}
+.streak{display:flex;gap:18px}
+.streak div{display:flex;flex-direction:column;align-items:center}
+.streak .num{font-family:var(--display);font-size:1.9rem;font-weight:800;line-height:1}
+.streak small{font-size:.7rem;color:var(--muted)}
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:.92rem}
+.checks li{display:flex;gap:10px;align-items:center;color:var(--muted)}
+.checks li.ok{color:var(--ink)}
+.checks .tick{width:22px;height:22px;flex:none;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:.75rem;font-weight:800}
+.checks li.ok .tick{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.checks li.bad .tick{border-color:var(--warn);color:var(--warn)}
+
+/* ugens udfordring */
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.day{display:flex;flex-direction:column;align-items:center;gap:4px}
+.day .o{width:100%;max-width:40px;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;font-weight:800;border:2px solid var(--line);color:var(--muted);font-size:.85rem}
+.day.green .o{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.day.miss .o{border-color:var(--warn);color:var(--warn);background:var(--warn-soft)}
+.day.now .o{border-style:dashed;border-color:var(--accent)}
+.day.now.green .o{border-style:solid}
+.day .d{font-size:.7rem;color:var(--muted);text-transform:capitalize}
+.day.now .d{color:var(--ink);font-weight:700}
+.day.pre .o{border-style:dotted;opacity:.5}
+.score-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.points{display:flex;flex-direction:column;align-items:flex-end}
+.points .num{font-family:var(--display);font-size:2.4rem;font-weight:800;line-height:1;color:var(--accent)}
+.points small{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+/* bowling-scoreark: én ramme pr. uge */
+.frames{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));border:2px solid var(--ink);border-radius:6px;overflow:hidden}
+.frame{border-right:1.5px solid var(--ink);display:flex;flex-direction:column;min-width:0}
+.frame:last-child{border-right:0}
+.f-top{height:38px;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:1.15rem;border-bottom:1.5px solid var(--line)}
+.frame.won .f-top{background:var(--accent);color:var(--accent-ink)}
+.frame.lost .f-top{color:var(--warn)}
+.frame.cur .f-top{font-size:.75rem;font-family:var(--body);background:var(--accent-soft)}
+.f-lbl{font-size:.6rem;color:var(--muted);text-align:center;padding:3px 0;white-space:nowrap}
+@media (max-width:460px){.frames{grid-template-columns:repeat(5,minmax(0,1fr))}.frame:nth-child(5){border-right:0}.frame:nth-child(-n+5){border-bottom:1.5px solid var(--ink)}}
+.rules{margin:10px 0 0;padding-left:1.1em;display:flex;flex-direction:column;gap:6px;font-size:.88rem;max-width:65ch}
+/* belønnings-ark */
+.rw-center{text-align:center;align-items:center}
+.pin{width:84px;height:84px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--display);font-size:3rem;font-weight:800}
+.rw-big{font-size:2.6rem;font-weight:800;color:var(--accent);line-height:1}
+.pts-pop{display:inline-block;background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:.35em 1em;font-weight:800;font-family:var(--display);font-size:1.2rem;align-self:flex-start}
+.lead{font-size:1.05rem;margin:0;max-width:60ch}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.stat{background:var(--sunk);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column}
+.stat .num{font-family:var(--display);font-size:1.6rem;font-weight:800;line-height:1.1}
+.stat small{font-size:.75rem;color:var(--muted)}
+.sheet h3{font-size:1.05rem;margin-top:4px}
+.ci{display:flex;flex-direction:column;gap:6px}
+.ci-q{font-weight:600;font-size:.92rem}
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:40}
+
+/* why */
+textarea,input,select{font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+textarea{resize:vertical;min-height:64px}
+.why-show{font-family:var(--display);font-size:1.15rem;font-weight:500;line-height:1.35}
+
+/* info-bokse */
+.info.good{background:var(--accent-soft)}
+.info.bad{background:var(--warn-soft)}
+.info.good h2{color:var(--accent)}
+.info.bad h2{color:var(--warn)}
+.why-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;max-width:65ch}
+.why-list li{display:flex;flex-direction:column;gap:2px}
+.why-list b{font-weight:700}
+.why-list span{font-size:.8rem;color:var(--muted)}
+.why-list p{margin:0;font-size:.9rem}
+
+/* facts */
+details summary{cursor:pointer;font-weight:600}
+.facts{display:flex;flex-direction:column;gap:10px;font-size:.9rem;max-width:65ch}
+.facts table{width:100%;border-collapse:collapse;font-size:.85rem}
+.facts td,.facts th{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+.facts th{font-weight:600;color:var(--muted)}
+.facts .ok{color:var(--accent);font-weight:700}
+.facts .adj{color:var(--warn);font-weight:700}
+
+/* sheets */
+.overlay{position:fixed;inset:0;background:rgb(0 0 0 / .45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:560px;max-height:88%;overflow:auto;border-radius:18px 18px 0 0;
+  padding:20px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  display:flex;flex-direction:column;gap:14px}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.close{border:0;background:var(--sunk);border-radius:50%;width:34px;height:34px;font-size:1.1rem}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1.5px solid var(--line);background:transparent;border-radius:999px;padding:.35em .85em;font-size:.85rem}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.foods{display:flex;flex-direction:column}
+.food{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;text-align:left;border:0;border-top:1px solid var(--line);background:transparent;padding:10px 2px}
+.food .m{font-size:.75rem;color:var(--muted)}
+.food .k{font-weight:700}
+.portion{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid2 label,.field{display:flex;flex-direction:column;gap:4px;font-size:.8rem;color:var(--muted)}
+.timer{font-family:var(--display);font-size:3.6rem;font-weight:800;text-align:center;line-height:1}
+.swap{background:var(--accent-soft);border-radius:12px;padding:12px 14px;font-weight:500}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;z-index:30;font-size:.9rem;max-width:90%}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>24 <span>timer</span></h1>
+      <div class="date" id="date"></div>
+    </div>
+    <p class="tagline">Kun i dag tæller. Du skal ikke klare hele graviditeten, kun de næste 24 timer. <b>Det kan du.</b></p>
+    <div>
+      <div class="strip" id="strip" aria-label="Dagens 24 timer"></div>
+      <div class="hours num"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+    </div>
+    <div class="left" id="left"></div>
+    <div class="notice" id="storeNote" hidden></div>
+  </header>
+
+  <section class="card today-card" aria-labelledby="h-today">
+    <div class="sin-head">
+      <span class="beacon go" aria-hidden="true"></span>
+      <h2 id="h-today" class="today-h">I dag</h2>
+      <span class="sick" role="img" aria-label="Muskel">💪</span>
+    </div>
+    <div class="kcal">
+      <div class="ring">
+        <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="var(--sunk)" stroke-width="12"/><circle id="ringFill" cx="60" cy="60" r="52" fill="none" stroke="var(--accent)" stroke-width="12" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7" style="transition:stroke-dashoffset .5s ease"/></svg>
+        <div class="mid"><div class="big num" id="kcalLeft">2000</div><div class="sub" id="kcalSub">kcal tilbage</div></div>
+      </div>
+      <div class="macros" id="macros"></div>
+    </div>
+    <div class="stop go-box">
+      <span class="stop-hand" role="img" aria-label="Muskel">💪</span>
+      <div class="stop-text">
+        <p class="go-shout">Sund og nærende mad</p>
+        <p><b>Der er kun plus og investeringer ved denne livsstil, og den giver SÅ mange gaver igen.</b></p>
+        <p>Din krop vil takke dig, din energi vil takke dig, din hud vil takke dig. Din selvtillid stiger, din livsglæde stiger, og ikke mindst giver du din baby alt det, den skal bruge for at vokse derinde:</p>
+        <ul class="baby-list">
+          <li><b>Protein</b> til organer, muskler og moderkagen</li>
+          <li><b>Omega-3</b> til hjernen og øjnene</li>
+          <li><b>Folat</b> til hjernen og rygmarven</li>
+          <li><b>Jern</b> til blodet og babys eget jernlager</li>
+          <li><b>Calcium</b> til knogler og tænder</li>
+          <li><b>Jod</b> til skjoldbruskkirtlen, som styrer hjernens udvikling</li>
+          <li><b>Et stabilt blodsukker</b>, så baby vokser i et sundt tempo og ikke bliver for stor</li>
+          <li><b>Smagen af grønt</b> gennem fostervandet, så baby kan lide den senere</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-green">
+    <div class="green-head">
+      <div class="gh-l"><div class="label" id="h-green">Grøn dag</div><span class="badge" id="greenBadge">På vej</span></div>
+      <div class="streak">
+        <div><span class="num" id="streak">0</span><small>grønne i træk</small></div>
+        <div><span class="num" id="best">0</span><small>din rekord</small></div>
+      </div>
+    </div>
+    <ul class="checks" id="greenChecks"></ul>
+  </section>
+
+  <section class="card sin-card" aria-labelledby="h-sin">
+    <div class="hazard" aria-hidden="true"></div>
+    <div class="sin-head">
+      <span class="beacon" aria-hidden="true"></span>
+      <h2 id="h-sin">Synderne</h2>
+      <span class="sick" role="img" aria-label="Forfalden zombie">🧟‍♀️</span>
+    </div>
+    <p class="sin-examples">Junk, chips, kager, slik, sodavand, is, wienerbrød, chokolade, juice, fastfood, osv.</p>
+    <div class="stop">
+      <span class="stop-hand" role="img" aria-label="Stop">✋</span>
+      <div class="stop-text">
+        <p><b>Det her er komfortmad og hyggemad. Der er ingen investering i den slags mad.</b></p>
+        <p class="stop-shout">Hold dig fra den første bid!</p>
+        <p>Der er kun minus. Kun tab. Din energi falder, dit tøj strammer, din hud ældes, dit overskud og humør falder, og din værdighed falder. Og ikke mindst har din baby heller ikke godt af det.</p>
+        <p class="stop-shout">Hold dig fra det.</p>
+      </div>
+    </div>
+    <div class="macros" id="sinners"></div>
+  </section>
+
+  <div class="actions">
+    <button class="btn" id="addBtn">Tilføj mad</button>
+    <button class="btn sos" id="sosBtn">Snack-SOS</button>
+  </div>
+
+  <section class="card">
+    <div class="wins">
+      <div><span class="label">Sejre over snacks i dag</span><div class="num" style="font-family:var(--display);font-size:1.6rem;font-weight:800" id="wins">0</div></div>
+      <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:6px"><span class="label">Vand (flasker à 50 cl)</span><div class="water" id="water"></div><div class="water-note" id="waterNote"></div></div>
+    </div>
+    <p class="water-info">Som gravid skal du have ca. <b>2,3 liter væske om dagen</b>. Ca. en femtedel kommer fra maden, så du skal drikke omkring <b>2 liter, svarende til 4 flasker à 50 cl</b>. Drik mere, når det er varmt, eller når du bevæger dig. Vand hjælper mod forstoppelse, hovedpine og hævede ben, og det bruges til fostervandet og dit større blodvolumen.</p>
+  </section>
+
+  <section class="card" aria-labelledby="h-why">
+    <div class="label" id="h-why">Derfor gør jeg det</div>
+    <div class="why-show" id="whyShow"></div>
+    <textarea id="whyInput" placeholder="Skriv din egen grund. Den bliver vist her og i Snack-SOS." hidden></textarea>
+    <div><button class="btn ghost" id="whyEdit">Ret</button></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-log">
+    <h2 id="h-log">Dagens mad</h2>
+    <div id="meals"></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-week">
+    <div class="score-head">
+      <div><div class="label">Ugens udfordring</div><h2 id="h-week">6 af 7 grønne dage = strike</h2></div>
+      <div class="points"><span class="num" id="points">0</span><small>point</small></div>
+    </div>
+    <div class="days" id="week"></div>
+    <div class="left" id="weekNote"></div>
+    <div class="label">Din bane</div>
+    <div class="frames" id="frames"></div>
+    <div class="left" id="chainNote"></div>
+    <details>
+      <summary>Sådan virker point og strikes</summary>
+      <ul class="rules">
+        <li>En uge med mindst 6 grønne dage er en <b>strike</b>.</li>
+        <li>Strikes i træk har navne som i bowling: Double (2), Turkey (3), Hambone (4), Five-bagger (5), Six-pack (6) … Perfect game (12).</li>
+        <li>Hver 3. vundne uge giver <b>+100 point</b> og en særlig hilsen.</li>
+        <li>En tabt uge koster <b>−25 point</b>. Du kan ikke komme under 0.</li>
+        <li>Ugen går fra mandag til søndag. Den uge, du starter i, er en øvelsesuge.</li>
+      </ul>
+    </details>
+  </section>
+
+  <section class="card" aria-labelledby="h-mirror">
+    <div class="label">Spejlet</div>
+    <h2 id="h-mirror">Hvem er du tættest på lige nu?</h2>
+    <div class="mirror">
+      <div class="who"><span class="face" role="img" aria-label="Slidt og træt">🧟‍♀️😩</span><small>Slidt og træt</small></div>
+      <div class="who"><span class="face" role="img" aria-label="Strålende">🤰✨</span><small>Strålende og stærk</small></div>
+    </div>
+    <div class="track" aria-hidden="true"><div class="track-line"></div><div class="you" id="you"><span>Dig</span></div></div>
+    <p class="mirror-status" id="mirrorStatus">Skriv din mad ind, så finder appen ud af, hvor du står.</p>
+    <p class="left" style="margin:0;font-size:.8rem">Viser hvordan du har spist den sidste uge. I dag tæller kun, om du holder dig fra junk og snacks.</p>
+  </section>
+
+  <section class="card info good" aria-labelledby="h-good">
+    <div class="label">Godt for din baby</div>
+    <h2 id="h-good">Det her bygger din baby</h2>
+    <ul class="why-list">
+      <li><b>Fed fisk</b> <span>laks, sild, makrel 2–3 gange om ugen</span><p>Omega-3-fedtsyren DHA bruges til at bygge barnets hjerne og øjne, især i 3. trimester.</p></li>
+      <li><b>Bælgfrugter, grønne blade og fuldkorn</b> <span>linser, kikærter, spinat, broccoli, rugbrød</span><p>Giver folat, som er vigtigt for nervesystemet. Fiber holder dit blodsukker stabilt og modvirker forstoppelse.</p></li>
+      <li><b>Æg, gennemkogte</b><p>Giver kolin og protein. Kolin bruges i udviklingen af barnets hjerne og hukommelse.</p></li>
+      <li><b>Magert kød, bønner og linser</b><p>Giver jern. Dit blod vokser med næsten halvdelen under graviditeten, og barnet bygger sit eget jernlager. Spis frugt eller grønt til, for C-vitamin øger optagelsen.</p></li>
+      <li><b>Mælk, skyr og ost</b><p>Giver calcium til barnets knogler og jod til skjoldbruskkirtlen, som styrer hjernens udvikling.</p></li>
+      <li><b>Nødder, rapsolie og avocado</b><p>Umættet fedt hjælper barnets celler og nervesystem og hjælper dig med at optage A-, D-, E- og K-vitamin.</p></li>
+      <li><b>Frugt og grønt i alle farver</b><p>Vitaminer, antioxidanter og fiber. Barnet smager det, du spiser, gennem fostervandet, så det vænnes allerede nu til smagen af grønt.</p></li>
+    </ul>
+  </section>
+
+  <section class="card info bad" aria-labelledby="h-bad">
+    <div class="label">Det modsatte</div>
+    <h2 id="h-bad">Sukker og usundt fedt</h2>
+    <ul class="why-list">
+      <li><b>Tilsat sukker</b> <span>slik, kage, is, sodavand, juice</span><p>Får blodsukkeret til at svinge. Dit blodsukker går direkte over moderkagen til barnet, og meget sukker øger risikoen for graviditetsdiabetes og et for stort barn ved fødslen.</p></li>
+      <li><b>Flydende sukker</b> <span>sodavand og juice</span><p>Mætter næsten ikke, så kalorierne kommer oven i det, du ellers spiser.</p></li>
+      <li><b>Mættet fedt</b> <span>kage, wienerbrød, chokolade, smør, fede pålæg</span><p>Fylder meget, uden at give barnet de byggesten, det har brug for. Byt det til fedt fra fisk, nødder og olie.</p></li>
+      <li><b>Transfedt</b> <span>nogle kiks, mikroovnspopcorn, friturestegt fastfood</span><p>Den mest skadelige slags fedt. Kan hæmme optagelsen af de gode omega-3-fedtsyrer. Undgå det helt.</p></li>
+      <li><b>Chips og salte snacks</b><p>Ikke så meget mættet fedt, men mange kalorier og meget salt. Salt kan give mere væske i kroppen og hævede ben.</p></li>
+      <li><b>Tomme kalorier</b><p>Snacks fylder dit kalorie-budget uden vitaminer, jern eller protein. Hver snack skubber noget næringsrigt ud.</p></li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>Om din fordeling (2000 kcal)</summary>
+      <div class="facts" style="margin-top:12px">
+        <table>
+          <tr><th>Næringsstof</th><th>Dit forslag</th><th>Tjek</th></tr>
+          <tr><td>Kulhydrat</td><td class="num">225–300 g (45–60 E%)</td><td><span class="ok">Korrekt</span>. Matcher de nordiske anbefalinger.</td></tr>
+          <tr><td>Protein</td><td class="num">50–100 g (10–20 E%)</td><td><span class="adj">Justeret til 70–100 g.</span> Regnestykket er rigtigt, men gravide i 2. og 3. trimester anbefales ca. 70 g om dagen. 50 g er for lidt.</td></tr>
+          <tr><td>Fedt</td><td class="num">55–88 g (25–40 E%)</td><td><span class="ok">Korrekt</span>. Max 10 E% mættet fedt, ca. 22 g.</td></tr>
+          <tr><td>Fiber</td><td class="num">25–35 g</td><td>Tilføjet. Hjælper mod forstoppelse.</td></tr>
+          <tr><td>Mættet fedt</td><td class="num">max 22 g</td><td>Grænse, ikke mål. Max 10 E%.</td></tr>
+          <tr><td>Tilsat sukker</td><td class="num">max 50 g</td><td>Grænse, ikke mål. Max 10 E%. Juice og sodavand tæller med.</td></tr>
+        </table>
+        <p>Hvor mange kcal du skal have, afhænger af trimester og din udgangsvægt. Vejledende behøver du ingen ekstra energi i 1. trimester, ca. 350 kcal ekstra i 2. og ca. 500 kcal ekstra i 3. trimester. Tal med din jordemoder om 2000 kcal passer til dig, og spis ikke under for at tabe dig, mens du er gravid. Du kan rette dit dagsmål nedenfor.</p>
+        <p>Husk folsyre, D-vitamin og evt. jern efter aftale med jordemoder eller læge. Undgå lever og leverpostej, rå æg, rå eller koldrøget fisk, upasteuriserede oste, og spis højst lidt tun.</p>
+        <label class="field" style="max-width:220px">Dagsmål (kcal)<input id="goalInput" type="number" min="1400" max="3200" step="50" inputmode="numeric"></label>
+      </div>
+    </details>
+  </section>
+
+  <div style="display:flex;justify-content:center"><button class="btn ghost" id="resetBtn">Nulstil i dag</button></div>
+</div>
+
+<!-- Tilføj mad -->
+<div class="overlay" id="addSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+    <div class="sheet-head"><h2 id="addTitle">Tilføj mad</h2><button class="close" data-close aria-label="Luk">×</button></div>
+    <div class="grid2">
+      <label>Måltid<select id="mealSel"></select></label>
+      <label>Portion<select id="portionSel"><option value="0.5">½ portion</option><option value="1" selected>1 portion</option><option value="1.5">1½ portion</option><option value="2">2 portioner</option></select></label>
+    </div>
+    <div class="ai-box" id="aiBox" hidden>
+      <label class="field" for="aiText">Skriv hvad du har spist, så regner appen det ud
+        <textarea id="aiText" placeholder="fx 2 skiver rugbrød med gennemkogt æg og ½ avocado, og en kop te med mælk"></textarea>
+      </label>
+      <div><button class="btn" id="aiBtn" type="button">Regn det ud</button></div>
+      <div id="aiOut"></div>
+    </div>
+    <div class="label" id="orList" hidden>Eller vælg fra listen</div>
+    <input id="search" type="search" placeholder="Søg, fx skyr, laks, rugbrød" autocomplete="off">
+    <div class="chips" id="cats"></div>
+    <div class="foods" id="foods"></div>
+    <details>
+      <summary>Noget andet? Indtast selv</summary>
+      <form id="customForm" style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+        <label class="field">Navn<input id="cName" required placeholder="fx Mormors grøntsagssuppe"></label>
+        <div class="grid2">
+          <label>kcal<input id="cK" type="number" min="0" inputmode="decimal" required></label>
+          <label>Kulhydrat (g)<input id="cC" type="number" min="0" step="0.1" inputmode="decimal"></label>
+          <label>Protein (g)<input id="cP" type="number" min="0" step="0.1" inputmode="decimal"></label>
+          <label>Fedt (g)<input id="cF" type="number" min="0" step="0.1" inputmode="decimal"></label>
+          <label>Heraf mættet fedt (g)<input id="cSf" type="number" min="0" step="0.1" inputmode="decimal"></label>
+          <label>Tilsat sukker (g)<input id="cSu" type="number" min="0" step="0.1" inputmode="decimal"></label>
+        </div>
+        <label class="field" style="flex-direction:row;align-items:center;gap:8px;color:var(--ink)"><input id="cSnack" type="checkbox" style="width:auto"> Det er en snack</label>
+        <button class="btn" type="submit">Tilføj</button>
+      </form>
+    </details>
+  </div>
+</div>
+
+<!-- Snack-SOS -->
+<div class="overlay" id="sosSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sosTitle">
+    <div class="sheet-head"><h2 id="sosTitle">Snack-SOS</h2><button class="close" data-close aria-label="Luk">×</button></div>
+    <p style="margin:0">En trang topper og falder igen, typisk inden for 10 minutter. Du kender det fra dengang du stoppede med nikotin. Giv den 10 minutter.</p>
+    <div class="timer num" id="timer">10:00</div>
+    <div class="notice" id="sosWhy" hidden></div>
+    <div class="swap" id="swap"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost" id="nextSwap">Nyt forslag</button><button class="btn ghost" id="eatSwap">Jeg tager det sunde forslag</button></div>
+    <div class="actions">
+      <button class="btn" id="won">Trangen gik over</button>
+      <button class="btn ghost" id="gaveIn">Jeg tog lidt</button>
+    </div>
+  </div>
+</div>
+
+<!-- Strike / 3-ugers hilsen -->
+<div class="overlay" id="rewardSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rwTitle" id="rwBody"></div>
+</div>
+
+<canvas id="confetti" aria-hidden="true" hidden></canvas>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+const MEALS = ["Morgenmad","Formiddag","Frokost","Eftermiddag","Aftensmad","Aften"];
+const T = { c:[225,300], p:[70,100], f:[55,88], fi:[25,35] };
+// k = kcal, c/p/f/fi = gram kulhydrat/protein/fedt/fiber, sf = mættet fedt, su = tilsat/frit sukker pr. portion (afrundede gennemsnitsværdier)
+const FOODS = [
+  ["Havregryn","50 g",185,30,6.5,3.5,5,.6,0,"Kulhydrat"],
+  ["Rugbrød","1 skive, 50 g",105,18,3.5,1.3,4,.2,0,"Kulhydrat"],
+  ["Fuldkornsbrød","1 skive, 40 g",100,17,4,1.5,3,.3,1,"Kulhydrat"],
+  ["Knækbrød, fuldkorn","1 stk, 12 g",40,7,1.2,.3,2,0,0,"Kulhydrat"],
+  ["Brune ris, kogte","150 g",170,35,3.5,1.4,2.5,.3,0,"Kulhydrat"],
+  ["Fuldkornspasta, kogt","150 g",210,40,8,1.5,6,.3,0,"Kulhydrat"],
+  ["Kartofler, kogte","200 g",150,32,4,.2,3,0,0,"Kulhydrat"],
+  ["Skyr naturel","200 g",126,8,22,.4,0,.3,0,"Protein"],
+  ["Græsk yoghurt 2 %","150 g",110,6,15,3,0,2,0,"Protein"],
+  ["Hytteost","100 g",90,3,12,4,0,2.5,0,"Protein"],
+  ["Letmælk","2,5 dl",115,12,8.5,3.8,0,2.4,0,"Protein"],
+  ["Æg, gennemkogt","1 stk",85,.4,7.5,6,0,1.8,0,"Protein"],
+  ["Kyllingebryst","150 g",165,0,35,2.5,0,.7,0,"Protein"],
+  ["Hakket oksekød 8 %","125 g",190,0,25,10,0,4.5,0,"Protein"],
+  ["Laks, tilberedt","125 g",260,0,26,17,0,3.5,0,"Protein"],
+  ["Makrel i tomat","100 g",190,3,14,14,0,3,1,"Protein"],
+  ["Linser, kogte","150 g",175,27,13,.6,8,.1,0,"Protein"],
+  ["Kikærter","100 g",140,18,8,2.5,7,.3,0,"Protein"],
+  ["Ost 30+","1 skive, 20 g",60,0,6,4,0,2.5,0,"Protein"],
+  ["Rapsolie / olivenolie","1 spsk",90,0,0,10,0,.8,0,"Fedt"],
+  ["Avocado","½ stk",120,1.5,1.5,12,5,1.6,0,"Fedt"],
+  ["Mandler","25 g",150,2.5,5,13,3,1,0,"Fedt"],
+  ["Valnødder","25 g",165,2,4,16,2,1.5,0,"Fedt"],
+  ["Peanutbutter","1 spsk, 15 g",95,2,4,8,1,1.6,.5,"Fedt"],
+  ["Hummus","50 g",130,7,4,9,3,1.2,0,"Fedt"],
+  ["Smør","10 g",74,0,.1,8.2,0,5.2,0,"Fedt"],
+  ["Banan","1 stk",105,24,1.3,.4,3,0,0,"Frugt & grønt"],
+  ["Æble","1 stk",80,19,.4,.3,3.5,0,0,"Frugt & grønt"],
+  ["Bær, frosne","100 g",50,10,1,.3,3,0,0,"Frugt & grønt"],
+  ["Appelsin","1 stk",65,13,1.2,.2,3,0,0,"Frugt & grønt"],
+  ["Broccoli","150 g",50,6,4,.5,4,0,0,"Frugt & grønt"],
+  ["Gulerødder","100 g",40,8,.8,.2,3,0,0,"Frugt & grønt"],
+  ["Blandet salat","100 g",20,3,1.2,.2,1.5,0,0,"Frugt & grønt"],
+  ["Slik / vingummi","50 g",190,45,1,0,0,0,30,"Snacks"],
+  ["Chips","30 g",160,15,2,10,1,1.5,0,"Snacks"],
+  ["Mælkechokolade","25 g",135,14,2,8,.5,4.8,13,"Snacks"],
+  ["Småkage","1 stk",80,10,1,4,.3,2,4,"Snacks"],
+  ["Kage / wienerbrød","1 stk, 80 g",340,38,5,19,1,9,15,"Snacks"],
+  ["Is","100 g",210,25,3.5,11,0,7,21,"Snacks"],
+  ["Sodavand","33 cl",140,35,0,0,0,0,35,"Snacks"],
+  ["Juice","2,5 dl",110,25,1,.3,.5,0,22,"Snacks"],
+].map(([n,u,k,c,p,f,fi,sf,su,g]) => ({n,u,k,c,p,f,fi,sf,su,g,snack:g==="Snacks"}));
+const CATS = ["Alle","Kulhydrat","Protein","Fedt","Frugt & grønt","Snacks"];
+const SWAPS = [
+  "Frosne vindruer eller frosne bær. Søde, kolde og tager tid at spise.",
+  "Gulerodsstave med 2 spsk hummus.",
+  "Skyr med bær og en håndfuld havregryn.",
+  "Et stort glas danskvand med citron. Tørst føles tit som sult.",
+  "Et æble i skiver med 1 spsk peanutbutter.",
+  "Gå en tur rundt om blokken. 10 minutter er nok.",
+  "Børst tænder. Så smager slik ikke af noget.",
+  "En kop te med kanel, sat ved siden af sofaen.",
+  "Gå ud af rummet, hvor slikskålen står. Det er ikke svaghed, det er strategi.",
+];
+const SWAP_FOOD = { 0:"Bær, frosne",1:"Hummus",2:"Skyr naturel",4:"Æble" };
+
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,"0");
+const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const r1 = n => Math.round(n*10)/10;
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+const mealNow = () => { const h = new Date().getHours(); return h<10?0:h<12?1:h<15?2:h<17?3:h<21?4:5; };
+
+let today = keyOf(new Date());
+let day = { entries:[], wins:0, water:0 };
+const OLD_WHY = "Jeg vil passe mit tøj og give min baby det bedste. Jeg har stoppet med nikotin efter 20 år, så jeg kan også det her.";
+let settings = { kcal:2000, why:"Jeg vil passe mit tøj og have det godt med mig selv og min krop. Jeg vil se mig selv med værdighed og give min baby det allerbedste. Jeg har kun 9 måneder til at sørge for det. Jeg har stoppet med nikotin efter 20 år, så jeg kan også det her!" };
+const NEW_WHY = settings.why;
+const hist = {};   // dato -> dagens data, de sidste 35 dage
+let histLoaded = false, prevGreen = null, justEdited = false;
+
+// ---------- lager: db når siden kører i Claude, ellers kun denne browser ----------
+const local = {
+  get(k){ try { return JSON.parse(localStorage.getItem("24t:"+k)); } catch { return null; } },
+  set(k,v){ try { localStorage.setItem("24t:"+k, JSON.stringify(v)); } catch {} },
+};
+let col = null, unsubDay = null;
+const writing = {};
+function save(id, data){
+  if (!col){ local.set(id, data); return; }
+  const w = writing[id] || (writing[id] = { busy:false, next:null });
+  w.next = data;
+  if (w.busy) return;
+  (async function run(){
+    w.busy = true;
+    while (w.next){ const d = w.next; w.next = null;
+      try { await col.doc(id).set(d); } catch(e){ toast("Kunne ikke gemme. Tjek forbindelsen."); }
+    }
+    w.busy = false;
+  })();
+}
+const dayId = k => "d-"+k;
+const saveDay = () => { justEdited = true; hist[today] = day; save(dayId(today), day); renderWeek(); };
+const saveSettings = () => save("settings", settings);
+
+function watchToday(){
+  if (unsubDay){ unsubDay(); unsubDay = null; }
+  if (!col){ day = norm(local.get(dayId(today))); renderAll(); return; }
+  const timer = setTimeout(() => note("Dine data er ikke hentet endnu. Det du tilføjer bliver gemt, når forbindelsen er der."), 10000);
+  unsubDay = col.doc(dayId(today)).onSnapshot(s => {
+    clearTimeout(timer);
+    if (s.metadata && s.metadata.hasPendingWrites) return;
+    day = norm(s.exists ? s.data() : null); renderAll();
+  }, () => clearTimeout(timer));
+}
+function norm(d){ return { entries: Array.isArray(d?.entries) ? d.entries.map(e=>({...e})) : [], wins: +d?.wins||0, water: +d?.water||0, bottles: +d?.bottles||0, winTimes: Array.isArray(d?.winTimes) ? [...d.winTimes] : [] }; }
+
+async function loadWeek(){
+  const days = [...Array(35)].map((_,i)=>{ const d=new Date(); d.setDate(d.getDate()-i-1); return keyOf(d); });
+  await Promise.all(days.map(async k => {
+    let d = null;
+    if (col){ try { const s = await col.doc(dayId(k)).get(); d = s.exists ? s.data() : null; } catch {} }
+    else d = local.get(dayId(k));
+    hist[k] = d ? norm(d) : null;
+  }));
+  histLoaded = true;
+  renderAll();
+}
+
+async function boot(){
+  renderAll();
+  let db = null, user = null;
+  try { claude.use("sample").then(s => { if (s){ sampleFn = s; $("aiBox").hidden = false; $("orList").hidden = false; } }, () => {}); } catch {}
+  try { [db, user] = await Promise.all([claude.use("db"), claude.use("user")]); } catch {}
+  const uid = user ? await user.id().catch(()=>null) : null;
+  if (db && uid){
+    col = db.collection("data/users/"+uid);
+    try { const s = await col.doc("settings").get(); if (s.exists) settings = { ...settings, ...s.data() }; } catch {}
+  } else {
+    const s = local.get("settings"); if (s) settings = { ...settings, ...s };
+    note("Dine data gemmes kun i denne browser.");
+  }
+  if (settings.why === OLD_WHY){ settings.why = NEW_WHY; saveSettings(); }
+  if (!settings.start){ settings.start = today; saveSettings(); }
+  watchToday(); loadWeek();
+}
+const note = t => { $("storeNote").textContent = t; $("storeNote").hidden = false; };
+
+// ---------- beregning ----------
+function sum(es){ return es.reduce((a,e)=>({k:a.k+e.k,c:a.c+e.c,p:a.p+e.p,f:a.f+e.f,fi:a.fi+(e.fi||0),sf:a.sf+(e.sf||0),su:a.su+(e.su||0),sk:a.sk+(e.snack?e.k:0)}),{k:0,c:0,p:0,f:0,fi:0,sf:0,su:0,sk:0}); }
+
+// ---------- visning ----------
+function renderAll(){ renderHeader(); renderToday(); renderMeals(); renderWhy(); renderWeek(); renderMirror(); }
+
+// Spejlet: 0 = slidt, 1 = strålende. Afsluttede dage tæller alle 4 grønne krav; i dag kun junk og synderne.
+function renderMirror(){
+  const start = settings.start || today, scores = [];
+  for (let i=1;i<=6;i++){ const k = addDays(today,-i), d = hist[k];
+    if (k < start || !d || !d.entries.length) continue;
+    scores.push(greenChecks(d).filter(c=>c[1]).length / 4); }
+  if (day.entries.length){ const cs = greenChecks(day); scores.push(((cs[0][1]?1:0) + (cs[3][1]?1:0)) / 2); }
+  const st = $("mirrorStatus");
+  if (!scores.length){ $("you").style.left = "50%"; st.textContent = "Skriv din mad ind, så finder appen ud af, hvor du står."; st.style.color = ""; return; }
+  const s = scores.reduce((a,b)=>a+b,0) / scores.length;
+  $("you").style.left = (4 + s*92) + "%";
+  const [txt, col] = s >= .8 ? ["Du stråler. Sådan ser en kvinde ud, der passer på sig selv og sin baby.", "var(--accent)"]
+    : s >= .6 ? ["Du er tættest på den strålende side. Bliv ved, du er næsten der.", "var(--accent)"]
+    : s >= .4 ? ["Du står midt imellem. Én grøn dag rykker dig mod den strålende side.", "var(--carb)"]
+    : s >= .2 ? ["Du glider mod den slidte side. Hold dig fra den første bid i dag.", "var(--warn)"]
+    : ["Den slidte side vinder lige nu. Men du skal kun klare de næste 24 timer. Start nu.", "var(--warn)"];
+  st.textContent = txt; st.style.color = col;
+}
+
+function renderHeader(){
+  const now = new Date();
+  $("date").textContent = now.toLocaleDateString("da-DK",{weekday:"long",day:"numeric",month:"long"});
+  const frac = (now.getHours()*60+now.getMinutes())/1440;
+  const strip = $("strip");
+  strip.innerHTML = `<div class="past" style="width:${frac*100}%"></div><div class="now" style="left:${frac*100}%"></div>`;
+  const dot = (ts, cls, title) => { const d=new Date(ts); const x=(d.getHours()*60+d.getMinutes())/1440*100;
+    strip.insertAdjacentHTML("beforeend",`<span class="dot ${cls}" style="left:${x}%" title="${esc(title)}"></span>`); };
+  day.entries.forEach(e => dot(e.ts, e.snack?"snack":"", `${e.n} kl. ${new Date(e.ts).toLocaleTimeString("da-DK",{hour:"2-digit",minute:"2-digit"})}`));
+  (day.winTimes||[]).forEach(ts => dot(ts,"win","Sejr over snack"));
+  const mins = 1440 - (now.getHours()*60+now.getMinutes());
+  const t = sum(day.entries);
+  const left = settings.kcal - t.k;
+  $("left").innerHTML = `<b class="num">${Math.floor(mins/60)} t ${mins%60} min</b> tilbage af i dag. ` +
+    (left >= 0 ? `Du har <b class="num">${Math.round(left)} kcal</b> at gøre godt med.` : `Du er <b class="num">${Math.round(-left)} kcal</b> over. I morgen er en ny dag.`);
+}
+
+function bar(label, val, [lo,hi], color, unit="g"){
+  const max = hi*1.3, pct = v => Math.min(v/max*100,100);
+  const state = val>hi ? "over" : val>=lo ? "i mål" : `${Math.round(lo-val)} ${unit} til målet`;
+  return `<div class="macro"><div class="row"><b>${label}</b><span class="num">${Math.round(val)} / ${lo}–${hi} ${unit} · ${state}</span></div>
+    <div class="bar"><div class="zone" style="left:${pct(lo)}%;width:${pct(hi)-pct(lo)}%;background:${color}"></div><div class="fill" style="width:${pct(val)}%;background:${color}"></div></div></div>`;
+}
+function renderToday(){
+  const t = sum(day.entries), goal = settings.kcal, left = goal - t.k;
+  const C = 326.7, ratio = Math.min(t.k/goal,1);
+  $("ringFill").style.strokeDashoffset = C*(1-ratio);
+  $("ringFill").style.stroke = t.k>goal ? "var(--carb)" : "var(--accent)";
+  $("kcalLeft").textContent = Math.round(Math.abs(left));
+  $("kcalSub").textContent = left>=0 ? `kcal tilbage af ${goal}` : `kcal over ${goal}`;
+  const s = goal/2000;
+  $("macros").innerHTML =
+    bar("Kulhydrat", t.c, T.c.map(v=>Math.round(v*s)), "var(--carb)") +
+    bar("Protein", t.p, T.p, "var(--prot)") +
+    bar("Fedt", t.f, T.f.map(v=>Math.round(v*s)), "var(--fat)") +
+    bar("Fiber", t.fi, T.fi, "var(--fib)");
+  renderSinners(t, goal);
+  renderGreen();
+  $("wins").textContent = day.wins;
+  $("water").innerHTML = [...Array(6)].map((_,i)=>`<button class="${i<day.bottles?"on":""} ${i>=4?"extra":""}" data-w="${i+1}" aria-label="${i+1} flaske${i?"r":""} vand"></button>`).join("");
+  const lft = Math.max(0, 4-day.bottles);
+  $("waterNote").innerHTML = lft ? `<b class="num">${day.bottles} af 4</b> flasker. ${lft} tilbage, så er du i mål.` : `<b>I mål!</b> ${day.bottles*0.5} liter i dag.`;
+}
+
+// Synderne: grænser, ikke mål. Max 10 E% mættet fedt og max 10 E% tilsat sukker.
+function ceilBar(label, val, max){
+  const r = val/max, col = r>1 ? "var(--warn)" : r>.7 ? "var(--carb)" : "var(--accent)";
+  const st = r>1 ? `${r1(val-max)} g over grænsen` : `${r1(max-val)} g tilbage`;
+  return `<div class="macro"><div class="row"><b>${label}</b><span class="num">${r1(val)} / max ${max} g · ${st}</span></div>
+    <div class="bar"><div class="fill" style="width:${Math.min(r*100,100)}%;background:${col}"></div></div></div>`;
+}
+function renderSinners(t, goal){
+  const maxSf = Math.round(goal*.1/9), maxSu = Math.round(goal*.1/4);
+  const top = day.entries.filter(e=>(e.sf||0)+(e.su||0)>=1 || e.snack)
+    .sort((a,b)=>((b.sf||0)+(b.su||0)+(b.snack?b.k/100:0))-((a.sf||0)+(a.su||0)+(a.snack?a.k/100:0))).slice(0,3);
+  const pct = t.k ? Math.round(t.sk/t.k*100) : 0;
+  $("sinners").innerHTML = ceilBar("Mættet fedt", t.sf, maxSf) + ceilBar("Tilsat sukker", t.su, maxSu) +
+    `<div class="sin-snack"><span class="big num">${Math.round(t.sk)}</span> kcal fra snacks i dag${t.sk?` · ${pct} % af det du har spist`:""}</div>` +
+    (top.length ? `<div class="sin-list"><div class="label">Dagens største syndere</div>` + top.map(e=>
+      `<div class="sin"><span class="n">${esc(e.n)}</span><span class="m num">${r1(e.sf||0)} g mættet fedt · ${r1(e.su||0)} g sukker · ${Math.round(e.k)} kcal</span></div>`).join("") + `</div>`
+      : `<p class="empty">Ingen syndere i dag. Sådan.</p>`);
+}
+
+function renderMeals(){
+  if (!day.entries.length){ $("meals").innerHTML = `<p class="empty">Intet registreret endnu. Tryk på "Tilføj mad", når du har spist.</p>`; return; }
+  $("meals").innerHTML = MEALS.map((m,mi) => {
+    const es = day.entries.filter(e=>e.meal===mi); if (!es.length) return "";
+    return `<div class="meal"><h3>${m}<span class="num">${Math.round(sum(es).k)} kcal</span></h3>` +
+      es.map(e=>`<div class="entry ${e.snack?"snack":""}"><div><div class="n">${esc(e.n)}</div><div class="m num">${esc(e.u||"")} · K ${r1(e.c)} · P ${r1(e.p)} · F ${r1(e.f)}</div></div><b class="num">${Math.round(e.k)}</b><button class="x" data-del="${e.id}" aria-label="Fjern ${esc(e.n)}">×</button></div>`).join("") + `</div>`;
+  }).join("");
+}
+
+function renderWhy(){ $("whyShow").textContent = settings.why || "Skriv din grund til at gå all in."; $("goalInput").value = settings.kcal; }
+
+// ---------- grøn dag og belønning ----------
+// En grøn dag: nul snacks, kcal ±10 %, protein ≥ 70 g, mættet fedt og tilsat sukker under grænsen.
+function greenChecks(d){
+  const t = sum(d?.entries||[]), g = settings.kcal, snack = !!d && d.entries.some(e=>e.snack);
+  return [
+    ["Nul junk og snacks", !snack && !!d?.entries.length, snack],
+    [`Kcal mellem ${Math.round(g*.9)} og ${Math.round(g*1.1)}`, t.k>=g*.9 && t.k<=g*1.1, t.k>g*1.1],
+    [`Protein mindst ${T.p[0]} g`, t.p>=T.p[0], false],
+    ["Mættet fedt og sukker under grænsen", !!d?.entries.length && t.sf<=Math.round(g*.1/9) && t.su<=Math.round(g*.1/4), t.sf>Math.round(g*.1/9) || t.su>Math.round(g*.1/4)],
+  ];
+}
+const isGreen = d => !!d && d.entries.length>0 && greenChecks(d).every(c=>c[1]);
+const weekKeys = (offset=0) => { const n=new Date(), dow=(n.getDay()+6)%7;
+  return [...Array(7)].map((_,i)=>{ const x=new Date(n); x.setDate(n.getDate()-dow+i+offset*7); return keyOf(x); }); };
+function streak(){
+  let n = isGreen(day) ? 1 : 0;
+  for (let i=1;i<=35;i++){ const x=new Date(); x.setDate(x.getDate()-i); if (isGreen(hist[keyOf(x)])) n++; else break; }
+  return n;
+}
+
+function renderGreen(){
+  const cs = greenChecks(day), g = isGreen(day), broken = cs.some(c=>c[2]);
+  const b = $("greenBadge");
+  b.textContent = g ? "Grøn indtil videre. Hold den!" : broken ? "Ikke grøn i dag. Kæmp for stimen i morgen" : `${cs.filter(c=>c[1]).length} af 4 i hus`;
+  b.className = "badge " + (g ? "ok" : broken ? "bad" : "");
+  $("greenChecks").innerHTML = cs.map(([l,ok,bad])=>`<li class="${ok?"ok":bad?"bad":""}"><span class="tick">${ok?"✓":bad?"×":""}</span>${l}</li>`).join("");
+  const s = streak();
+  if (histLoaded && s > (settings.best||0)){ settings.best = s; saveSettings(); }
+  $("streak").textContent = s; $("best").textContent = settings.best||0;
+  if (g && prevGreen===false && justEdited){ confetti(); toast("Alle 4 i hus. Hold den til i aften!"); }
+  prevGreen = g; justEdited = false;
+}
+
+// ---------- strikes og point ----------
+const addDays = (k,n) => { const d=new Date(k+"T12:00"); d.setDate(d.getDate()+n); return keyOf(d); };
+const mondayOf = k => addDays(k, -((new Date(k+"T12:00").getDay()+6)%7));
+// Udfordringen tæller fra den første hele uge: startdagens uge er en øvelsesuge, medmindre man starter en mandag.
+const firstWeek = () => { const s = settings.start || today, m = mondayOf(s); return m===s ? s : addDays(m,7); };
+const isoWeek = k => { const d=new Date(k+"T12:00"); d.setDate(d.getDate()+3-((d.getDay()+6)%7)); const y=new Date(d.getFullYear(),0,4);
+  return 1+Math.round(((d-y)/864e5-3+((y.getDay()+6)%7))/7); };
+const STRIKES = ["","Strike","Double","Turkey","Hambone","Five-bagger","Six-pack","Seven-bagger","Eight-bagger","Nine-bagger","Ten-bagger","Eleven-bagger","Perfect game"];
+const strikeName = n => STRIKES[Math.min(n,12)];
+function tally(){
+  let pts = 0, wins = 0, chain = 0;
+  const res = settings.weeks || {};
+  Object.keys(res).sort().forEach(w => {
+    if (res[w]==="won"){ wins++; chain++; if (wins%3===0) pts += 100; }
+    else { pts = Math.max(0, pts-25); chain = 0; }
+  });
+  return { pts, wins, chain };
+}
+
+function evaluateWeeks(curMon, fw, done, missed, tg, late){
+  const res = settings.weeks || (settings.weeks = {}), newly = [];
+  for (let w = fw; w < curMon; w = addDays(w,7)){
+    if (res[w]) continue;
+    const ks = [...Array(7)].map((_,i)=>addDays(w,i));
+    if (!ks.every(k => k in hist)) continue;
+    res[w] = ks.filter(k=>isGreen(hist[k])).length >= 6 ? "won" : "lost"; newly.push(w);
+  }
+  if (curMon >= fw && !res[curMon]){
+    if (done>=6 || (done>=5 && tg && late)){ res[curMon] = "won"; newly.push(curMon); }
+    else if (missed>=2){ res[curMon] = "lost"; newly.push(curMon); }
+  }
+  if (!newly.length) return;
+  saveSettings();
+  const won = newly.filter(w=>res[w]==="won");
+  if (!won.length){ toast("Ugen gik ikke. −25 point. Ny chance fra mandag."); return; }
+  const { wins, chain } = tally();
+  const winsAt = w => Object.keys(res).filter(x=>x<=w && res[x]==="won").length;
+  const milestone = won.some(w => winsAt(w)%3===0);
+  $("rwBody").className = "sheet" + (milestone ? "" : " rw-center");
+  $("rwBody").innerHTML = milestone ? milestoneHTML(Math.floor(wins/3), chain) : strikeHTML(chain, wins);
+  ci = {};
+  $("rewardSheet").hidden = false; confetti(true);
+}
+
+function strikeHTML(chain, wins){
+  const left = 3 - wins%3;
+  return `<div class="pin">X</div><h2 id="rwTitle" class="rw-big">${strikeName(chain)}!</h2>
+    <p style="margin:0">${chain>1 ? `${chain} vundne uger i træk.` : "6 grønne dage. Ugen er vundet."} ${chain<12 ? `Næste: <b>${strikeName(chain+1)}</b>.` : "Det perfekte spil."}</p>
+    <p class="left" style="margin:0">${left} vundne uge${left>1?"r":""} mere til de næste 100 point.</p>
+    <button class="btn" data-close>Videre!</button>`;
+}
+
+function last21(){
+  let g=0, p=0, fi=0, w=0, free=0;
+  for (let i=0;i<21;i++){ const k = addDays(today,-i), d = k===today ? day : hist[k]; if (!d) continue;
+    const t = sum(d.entries); if (isGreen(d)) g++; p += t.p; fi += t.fi; w += d.wins||0;
+    if (d.entries.length && !d.entries.some(e=>e.snack)) free++; }
+  return { g, p, fi, w, free };
+}
+const CI_Q = [["sleep","Din søvn"],["energy","Dit overskud"],["mood","Dit humør"],["skin","Din hud"]];
+let ci = {};
+function milestoneHTML(n, chain){
+  const s = last21();
+  return `<div class="label">${n*3} vundne uger i alt</div>
+    <h2 id="rwTitle" class="rw-big">${chain>=3 ? strikeName(chain)+"!" : "3 uger mere i hus!"}</h2>
+    <div class="pts-pop">+100 point</div>
+    <p class="lead">Hvor er du bare sej. Tre uger, hvor du har valgt din krop og din baby, igen og igen, mens slikskålen stod lige der. Det er ikke held. Det er dig.</p>
+    <div class="stats">
+      <div class="stat"><span class="num">${s.g}</span><small>grønne dage de sidste 3 uger</small></div>
+      <div class="stat"><span class="num">${s.free}</span><small>dage helt uden snacks</small></div>
+      <div class="stat"><span class="num">${(s.p/1000).toLocaleString("da-DK",{maximumFractionDigits:1})} kg</span><small>protein til at bygge din baby</small></div>
+      <div class="stat"><span class="num">${Math.round(s.fi)} g</span><small>fiber til din mave og dit blodsukker</small></div>
+    </div>
+    ${s.w ? `<p style="margin:0">Og du har sagt nej til trangen <b>${s.w} gange</b> med Snack-SOS.</p>` : ""}
+    <h3>Det har de 3 uger betydet</h3>
+    <ul class="why-list">
+      <li><b>Din baby</b><p>I ESTEEM-studiet (2019) havde gravide, der spiste middelhavsagtigt med fisk, nødder, olie, frugt og grønt, 35 % lavere risiko for graviditetsdiabetes, og de tog mindre på.</p></li>
+      <li><b>Barnets smag</b><p>Babyer, hvis mødre drak gulerodsjuice i graviditeten, tog bedre imod gulerodsgrød senere (Mennella, 2001). Din baby smager allerede din grønne mad.</p></li>
+      <li><b>Din søvn</b><p>Et studie fra Columbia University (2016) fandt, at mere fiber gav mere dyb søvn, mens mere sukker og mættet fedt gav lettere og mere urolig søvn.</p></li>
+      <li><b>Din energi</b><p>Fuldkorn, fiber og protein holder blodsukkeret stabilt. Færre blodsukkerdyk betyder færre pludselige energidyk og mindre sukkertrang.</p></li>
+      <li><b>Dit humør</b><p>I SMILES-studiet (2017) fik voksne med nedtrykthed færre symptomer efter 12 uger med sundere kost.</p></li>
+      <li><b>Din hud</b><p>Unge mænd på en kost med færre hurtige kulhydrater fik færre bumser end dem, der spiste mange (Smith m.fl., 2007).</p></li>
+    </ul>
+    <h3>Har du mærket det?</h3>
+    ${CI_Q.map(([q,l])=>`<div class="ci"><div class="ci-q">${l}</div><div class="chips">${["Bedre","Det samme","Ved ikke endnu"].map(v=>`<button class="chip" data-ci="${q}" data-v="${v}">${v}</button>`).join("")}</div></div>`).join("")}
+    <button class="btn" data-cisave>Gem og fortsæt</button>`;
+}
+
+function renderWeek(){
+  hist[today] = day;
+  const keys = weekKeys(), curMon = keys[0], tg = isGreen(day), late = new Date().getHours() >= 20;
+  const start = settings.start || today, fw = firstWeek();
+  let done = 0, missed = 0;
+  $("week").innerHTML = keys.map(k=>{
+    const isT = k===today, fut = k>today;
+    let st = "", mark = "";
+    if (isT){ st = "now" + (tg?" green":""); mark = tg?"✓":""; }
+    else if (k < start){ st = "pre"; }
+    else if (!fut){
+      if (!histLoaded){ mark = "·"; }
+      else if (isGreen(hist[k])){ st = "green"; mark = "✓"; done++; }
+      else { st = "miss"; mark = "×"; missed++; }
+    }
+    const lbl = new Date(k+"T12:00").toLocaleDateString("da-DK",{weekday:"short"}).replace(".","").slice(0,3);
+    return `<div class="day ${st}"><div class="o">${mark}</div><div class="d">${lbl}</div></div>`;
+  }).join("");
+
+  if (histLoaded) evaluateWeeks(curMon, fw, done, missed, tg, late);
+  const { pts, wins, chain } = tally(), res = settings.weeks || {};
+  $("points").textContent = pts;
+
+  const have = done + (tg?1:0), need = Math.max(0, 6-have);
+  let msg;
+  if (curMon < fw) msg = `<b>Øvelsesuge.</b> Du startede ${new Date(start+"T12:00").toLocaleDateString("da-DK",{weekday:"long"})}, så udfordringen tæller fra mandag. Grønne dage tæller stadig i din stime.`;
+  else if (res[curMon]==="won") msg = `<b>Strike!</b> Ugen er vundet. Hver grøn dag tæller stadig i din stime.`;
+  else if (res[curMon]==="lost") msg = `Denne uge gik ikke. <b>Ny chance fra mandag.</b> Din stime kan du stadig bygge på.`;
+  else if (!histLoaded) msg = "Henter ugen…";
+  else msg = `<b class="num">${have} af 6</b> grønne dage${tg?" (i dag tæller, hvis du holder den)":""}. Du mangler <b class="num">${need}</b>. ` +
+    (missed===0 ? "Du har råd til at misse 1 dag." : "Ingen flere fridage denne uge. Hver dag tæller nu.");
+  $("weekNote").innerHTML = msg;
+
+  // scoreark: én ramme pr. uge fra første tællende uge
+  const ws = []; for (let w = fw; w <= curMon; w = addDays(w,7)) ws.push(w);
+  const shown = ws.slice(-10);
+  const from = shown.length ? shown[0] : fw;
+  $("frames").innerHTML = [...Array(10)].map((_,i)=>{
+    const w = addDays(from, 7*i), r = res[w], cur = w===curMon;
+    const mark = r==="won" ? "X" : r==="lost" ? "–" : cur ? `${have}/6` : "";
+    return `<div class="frame ${r||""} ${cur&&!r?"cur":""}"><div class="f-top num">${mark}</div><div class="f-lbl">uge ${isoWeek(w)}</div></div>`;
+  }).join("");
+  const toHundred = 3 - wins%3;
+  $("chainNote").innerHTML = (chain ? `Lige nu: <b>${strikeName(chain)}</b>, ${chain} strike${chain>1?"s":""} i træk. Næste: ${strikeName(chain+1)}. ` : "Vind en uge for at slå din første strike. ") +
+    `<b class="num">${toHundred}</b> vundne uge${toHundred>1?"r":""} til de næste 100 point.`;
+}
+
+function confetti(big){
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const cv = $("confetti"), ctx = cv.getContext("2d"), W = cv.width = innerWidth, H = cv.height = innerHeight;
+  const cs = getComputedStyle(document.documentElement);
+  const cols = ["--accent","--carb","--prot","--fat","--water"].map(v=>cs.getPropertyValue(v).trim());
+  const ps = [...Array(big?220:90)].map(()=>({x:W/2+(Math.random()-.5)*W*.3, y:H*.35, vx:(Math.random()-.5)*14, vy:-Math.random()*14-4,
+    r:Math.random()*6+4, a:Math.random()*6, va:(Math.random()-.5)*.3, c:cols[Math.floor(Math.random()*cols.length)]}));
+  cv.hidden = false; const t0 = performance.now();
+  (function frame(t){
+    ctx.clearRect(0,0,W,H);
+    ps.forEach(p=>{ p.vy+=.35; p.vx*=.99; p.x+=p.vx; p.y+=p.vy; p.a+=p.va;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.a); ctx.fillStyle=p.c; ctx.fillRect(-p.r/2,-p.r/4,p.r,p.r/2); ctx.restore(); });
+    if (t-t0 < (big?3500:2200)) requestAnimationFrame(frame); else { ctx.clearRect(0,0,W,H); cv.hidden = true; }
+  })(t0);
+}
+
+// ---------- tilføj mad ----------
+let cat = "Alle";
+function openAdd(preset){
+  $("mealSel").innerHTML = MEALS.map((m,i)=>`<option value="${i}" ${i===mealNow()?"selected":""}>${m}</option>`).join("");
+  $("portionSel").value = "1"; $("search").value = preset || ""; cat = preset ? "Alle" : cat;
+  renderFoods(); $("addSheet").hidden = false; setTimeout(()=>$("search").focus(),50);
+}
+function renderFoods(){
+  $("cats").innerHTML = CATS.map(c=>`<button class="chip ${c===cat?"on":""}" data-cat="${c}">${c}</button>`).join("");
+  const q = $("search").value.trim().toLowerCase();
+  const list = FOODS.filter(f => (cat==="Alle"||f.g===cat) && (!q || f.n.toLowerCase().includes(q)));
+  $("foods").innerHTML = list.length ? list.map(f=>`<button class="food" data-food="${FOODS.indexOf(f)}"><div><div>${esc(f.n)}</div><div class="m num">${esc(f.u)} · K ${f.c} · P ${f.p} · F ${f.f}</div></div><span class="k num">${f.k} kcal</span></button>`).join("")
+    : `<p class="empty">Ingen match. Indtast den selv herunder.</p>`;
+}
+function addEntry(base, mult){
+  const e = { id: Date.now().toString(36)+Math.random().toString(36).slice(2,6), n:base.n, u: mult===1?base.u:`${mult} × ${base.u}`,
+    k:base.k*mult, c:base.c*mult, p:base.p*mult, f:base.f*mult, fi:(base.fi||0)*mult, sf:(base.sf||0)*mult, su:(base.su||0)*mult, snack:!!base.snack, meal:+$("mealSel").value, ts:Date.now() };
+  day.entries.push(e); saveDay(); renderAll();
+  toast(`${base.n} tilføjet · ${Math.round(e.k)} kcal`);
+}
+
+// ---------- regn måltidet ud fra fritekst (Claude giver et skøn) ----------
+let sampleFn = null, aiItems = [];
+const AI_PROMPT = txt => `Du er en dansk ernæringsberegner. Estimer næringsindholdet i det, en gravid kvinde har spist, ud fra danske gennemsnitsværdier (som i Frida-fødevaredatabasen). Del måltidet op i de enkelte fødevarer. Står mængden ikke, så antag en almindelig portion og skriv den.
+Svar KUN med JSON i denne form:
+{"items":[{"n":"navn på dansk","u":"mængde, fx 2 skiver eller 150 g","k":0,"c":0,"p":0,"f":0,"fi":0,"sf":0,"su":0,"snack":false}]}
+k = kcal, c = kulhydrat i gram, p = protein, f = fedt, fi = fiber, sf = mættet fedt, su = tilsat eller frit sukker (også fra juice og honning). snack = true for slik, chips, kage, kiks, is, sodavand, juice, fastfood og anden junk.
+Tal som tal med højst 1 decimal. Er teksten ikke mad, så svar {"items":[]}.
+Det har hun spist: """${txt}"""`;
+const num = v => Math.max(0, Math.round((parseFloat(v)||0)*10)/10);
+async function aiEstimate(){
+  const txt = $("aiText").value.trim();
+  if (!txt || !sampleFn) return;
+  $("aiBtn").disabled = true; $("aiOut").innerHTML = `<p class="empty">Regner det ud…</p>`;
+  try {
+    const r = await sampleFn.json(AI_PROMPT(txt.slice(0,600)));
+    aiItems = (Array.isArray(r?.items) ? r.items : []).slice(0,15).map(x => ({
+      n: String(x.n||"Ukendt").slice(0,60), u: String(x.u||"").slice(0,40),
+      k:num(x.k), c:num(x.c), p:num(x.p), f:num(x.f), fi:num(x.fi), sf:num(x.sf), su:num(x.su), snack: x.snack===true }));
+    renderAi();
+  } catch(e){
+    const msg = { not_granted:"Appen har ikke lov til at spørge Claude. Du kan give lov under appens tilladelser.",
+      rate_limited:"Der er for mange forsøg lige nu. Prøv igen om lidt.", invalid_json:"Svaret kunne ikke læses. Prøv at skrive det lidt anderledes." }[e?.code];
+    $("aiOut").innerHTML = `<p class="empty">${msg || "Det gik ikke lige nu. Prøv igen, eller vælg fra listen."}</p>`;
+  } finally { $("aiBtn").disabled = false; }
+}
+function renderAi(){
+  if (!aiItems.length){ $("aiOut").innerHTML = `<p class="empty">Ingen mad fundet i teksten. Prøv at skrive det lidt mere præcist.</p>`; return; }
+  const t = sum(aiItems);
+  $("aiOut").innerHTML = aiItems.map((e,i)=>`<div class="ai-item"><div><div>${esc(e.n)}</div><div class="m num">${esc(e.u)} · K ${e.c} · P ${e.p} · F ${e.f}${e.snack?" · snack":""}</div></div><b class="num">${Math.round(e.k)}</b><button class="x" data-aidel="${i}" aria-label="Fjern ${esc(e.n)}">×</button></div>`).join("") +
+    `<div class="ai-total"><span class="num">I alt <b>${Math.round(t.k)} kcal</b> · K ${r1(t.c)} · P ${r1(t.p)} · F ${r1(t.f)} g</span><button class="btn" data-aiadd>Tilføj</button></div>
+     <p class="empty" style="margin:6px 0 0;font-size:.78rem">Et skøn ud fra din beskrivelse. Fjern det, der ikke passer.</p>`;
+}
+function aiAdd(){
+  const meal = +$("mealSel").value, now = Date.now();
+  aiItems.forEach((b,i) => day.entries.push({ id: now.toString(36)+i+Math.random().toString(36).slice(2,5), ...b, meal, ts: now }));
+  const k = Math.round(sum(aiItems).k);
+  aiItems = []; $("aiText").value = ""; $("aiOut").innerHTML = "";
+  saveDay(); renderAll(); closeSheets(); toast(`${MEALS[meal]} tilføjet · ${k} kcal`);
+}
+
+// ---------- Snack-SOS ----------
+let sosT = null, sosEnd = 0, swapI = 0;
+function openSos(){
+  swapI = Math.floor(Math.random()*SWAPS.length); showSwap();
+  $("sosWhy").textContent = settings.why ? `Husk: ${settings.why}` : ""; $("sosWhy").hidden = !settings.why;
+  sosEnd = Date.now() + 600000; tick(); clearInterval(sosT); sosT = setInterval(tick, 1000);
+  $("sosSheet").hidden = false;
+}
+function tick(){
+  const s = Math.max(0, Math.round((sosEnd-Date.now())/1000));
+  $("timer").textContent = `${Math.floor(s/60)}:${pad(s%60)}`;
+  if (!s){ clearInterval(sosT); $("timer").textContent = "Klaret"; }
+}
+function showSwap(){ $("swap").textContent = SWAPS[swapI]; $("eatSwap").hidden = !(swapI in SWAP_FOOD); }
+function closeSheets(){ $("addSheet").hidden = true; $("sosSheet").hidden = true; $("rewardSheet").hidden = true; clearInterval(sosT); }
+
+// ---------- events ----------
+document.addEventListener("click", ev => {
+  const t = ev.target.closest("button"); if (!t){ if (ev.target.classList.contains("overlay")) closeSheets(); return; }
+  if (t.dataset.close !== undefined) return closeSheets();
+  if (t.dataset.cat){ cat = t.dataset.cat; return renderFoods(); }
+  if (t.dataset.food){ addEntry(FOODS[+t.dataset.food], +$("portionSel").value); return closeSheets(); }
+  if (t.dataset.del){ day.entries = day.entries.filter(e=>e.id!==t.dataset.del); saveDay(); return renderAll(); }
+  if (t.dataset.aidel){ aiItems.splice(+t.dataset.aidel,1); return renderAi(); }
+  if (t.dataset.aiadd !== undefined) return aiAdd();
+  if (t.dataset.ci){
+    ci[t.dataset.ci] = t.dataset.v;
+    t.parentElement.querySelectorAll(".chip").forEach(b=>b.classList.toggle("on", b===t)); return;
+  }
+  if (t.dataset.cisave !== undefined){
+    settings.checkins = [...(settings.checkins||[]), { date: today, wins: tally().wins, ...ci }];
+    saveSettings(); closeSheets(); toast("Gemt. Tak fordi du mærker efter."); return;
+  }
+  if (t.dataset.w){ const n=+t.dataset.w; day.bottles = day.bottles===n ? n-1 : n; if (day.bottles===4) confetti(); saveDay(); return renderToday(); }
+});
+$("addBtn").onclick = () => openAdd();
+$("aiBtn").onclick = aiEstimate;
+$("sosBtn").onclick = openSos;
+$("search").oninput = renderFoods;
+$("nextSwap").onclick = () => { swapI = (swapI+1)%SWAPS.length; showSwap(); };
+$("eatSwap").onclick = () => { const n = SWAP_FOOD[swapI]; closeSheets(); openAdd(n); };
+$("won").onclick = () => {
+  day.wins++; day.winTimes = [...(day.winTimes||[]), Date.now()]; saveDay(); closeSheets(); renderAll(); confetti();
+  toast(day.wins===1 ? "Første sejr i dag. Godt gået." : `${day.wins} sejre i dag. Du står fast.`);
+};
+$("gaveIn").onclick = () => { closeSheets(); cat = "Snacks"; openAdd(); toast("Det er okay. Skriv det ind, og fortsæt dagen."); };
+$("customForm").onsubmit = ev => {
+  ev.preventDefault();
+  const v = id => parseFloat($(id).value.replace(",", "."))||0;
+  addEntry({ n:$("cName").value.trim()||"Eget måltid", u:"", k:v("cK"), c:v("cC"), p:v("cP"), f:v("cF"), sf:v("cSf"), su:v("cSu"), snack:$("cSnack").checked }, 1);
+  ev.target.reset(); closeSheets();
+};
+$("whyEdit").onclick = () => {
+  const inp = $("whyInput");
+  if (inp.hidden){ inp.value = settings.why; inp.hidden = false; $("whyShow").hidden = true; $("whyEdit").textContent = "Gem"; inp.focus(); }
+  else { settings.why = inp.value.trim(); saveSettings(); inp.hidden = true; $("whyShow").hidden = false; $("whyEdit").textContent = "Ret"; renderWhy(); }
+};
+$("goalInput").onchange = () => { const v = Math.round(+$("goalInput").value); if (v>=1400 && v<=3200){ settings.kcal = v; saveSettings(); renderAll(); } else renderWhy(); };
+let resetArm = 0;
+$("resetBtn").onclick = () => {
+  if (Date.now()-resetArm > 4000){ resetArm = Date.now(); $("resetBtn").textContent = "Tryk igen for at slette dagens data"; setTimeout(()=>$("resetBtn").textContent="Nulstil i dag",4000); return; }
+  day = { entries:[], wins:0, water:0 }; saveDay(); renderAll(); $("resetBtn").textContent = "Nulstil i dag"; resetArm = 0;
+};
+document.addEventListener("keydown", e => { if (e.key==="Escape") closeSheets(); });
+
+let toastT;
+function toast(msg){ const el=$("toast"); el.textContent=msg; el.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>el.hidden=true,2600); }
+
+// nyt døgn ved midnat
+setInterval(() => { const k = keyOf(new Date()); if (k!==today){ today = k; watchToday(); loadWeek(); } else renderHeader(); }, 30000);
+
+boot();
+})();
+</script>
+
+</body>
+</html>
